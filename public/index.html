@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Drag and drop MAF (Mutation Annotation Format) files to explore somatic mutations, variant classifications, and gene-level annotations.">
+  <title>MAF Viewer — Somatic Mutation Explorer</title>
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+  <div class="app-container" id="app">
+
+    <!-- ============================== -->
+    <!-- DROP ZONE VIEW                 -->
+    <!-- ============================== -->
+    <div class="drop-zone-view" id="dropZoneView">
+      <div class="drop-zone-header">
+        <h1>MAF Viewer</h1>
+        <p class="subtitle">Explore somatic mutations. Drop a file. See what changed.</p>
+      </div>
+
+      <div class="drop-zone" id="dropZone">
+        <div class="drop-zone-content" id="dropZoneContent">
+          <div class="drop-zone-icon">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke-linecap="round" stroke-linejoin="round"/>
+              <polyline points="7 10 12 15 17 10" stroke-linecap="round" stroke-linejoin="round"/>
+              <line x1="12" y1="15" x2="12" y2="3" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <div class="drop-zone-text">
+            <p>Drop a <strong>.maf</strong> file here</p>
+            <span class="hint">or click to browse — GDC Mutation Annotation Format</span>
+          </div>
+        </div>
+
+        <div class="drop-zone-loading" id="dropZoneLoading">
+          <div class="loading-spinner"></div>
+          <span class="loading-text" id="loadingText">Parsing mutations…</span>
+        </div>
+
+        <input type="file" id="fileInput" accept=".maf,.maf.gz,.tsv,.txt">
+      </div>
+
+      <div class="demo-hint">
+        <p class="hypothesis">Have a demo file in the repo?</p>
+        <button id="loadDemoBtn">Load demo MAF</button>
+      </div>
+    </div>
+
+    <!-- ============================== -->
+    <!-- DASHBOARD VIEW                 -->
+    <!-- ============================== -->
+    <div class="dashboard-view" id="dashboardView">
+
+      <!-- Top bar -->
+      <div class="top-bar">
+        <div class="top-bar-left">
+          <span class="top-bar-logo">MAF Viewer</span>
+          <span class="top-bar-file" id="fileName"></span>
+        </div>
+        <button class="btn-new-file" id="newFileBtn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          New file
+        </button>
+      </div>
+
+      <!-- Metadata banner -->
+      <div class="metadata-banner" id="metadataBanner"></div>
+
+      <!-- Stats cards -->
+      <div class="stats-row" id="statsRow"></div>
+
+      <!-- Charts -->
+      <div class="charts-section" id="chartsSection">
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <div>
+              <div class="chart-card-title">Variant Classification</div>
+              <div class="chart-card-subtitle">What types of mutations were found</div>
+            </div>
+          </div>
+          <div class="chart-container">
+            <canvas id="chartVariantClass"></canvas>
+          </div>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <div>
+              <div class="chart-card-title">Variant Type</div>
+              <div class="chart-card-subtitle">SNP, insertion, deletion breakdown</div>
+            </div>
+          </div>
+          <div class="chart-container">
+            <canvas id="chartVariantType"></canvas>
+          </div>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <div>
+              <div class="chart-card-title">Chromosome Distribution</div>
+              <div class="chart-card-subtitle">Where mutations land across the genome</div>
+            </div>
+          </div>
+          <div class="chart-container">
+            <canvas id="chartChromosome"></canvas>
+          </div>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <div>
+              <div class="chart-card-title">Top Mutated Genes</div>
+              <div class="chart-card-subtitle">Most frequently mutated genes in this sample</div>
+            </div>
+          </div>
+          <div class="chart-container">
+            <canvas id="chartTopGenes"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Data table -->
+      <div class="table-section" id="tableSection">
+        <div class="table-header">
+          <h2 class="table-title">Mutation Table</h2>
+          <div class="table-controls">
+            <div class="search-box">
+              <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
+              <input type="text" id="tableSearch" placeholder="Search genes, variants, positions…">
+            </div>
+            <button class="btn-columns" id="columnPickerBtn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>
+              </svg>
+              Columns
+            </button>
+          </div>
+        </div>
+
+        <div class="table-wrapper">
+          <div style="overflow-x: auto;">
+            <table class="data-table" id="dataTable">
+              <thead id="dataTableHead"></thead>
+              <tbody id="dataTableBody"></tbody>
+            </table>
+          </div>
+          <div class="table-pagination" id="tablePagination"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================== -->
+    <!-- DETAIL PANEL                   -->
+    <!-- ============================== -->
+    <div class="detail-overlay" id="detailOverlay"></div>
+    <div class="detail-panel" id="detailPanel">
+      <div class="detail-panel-header">
+        <div class="detail-panel-title" id="detailTitle"></div>
+        <button class="detail-close" id="detailClose">
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <div class="detail-body" id="detailBody"></div>
+    </div>
+
+    <!-- ============================== -->
+    <!-- COLUMN PICKER MODAL            -->
+    <!-- ============================== -->
+    <div class="column-picker-overlay" id="columnPickerOverlay">
+      <div class="column-picker" id="columnPicker">
+        <h3>Select Visible Columns</h3>
+        <input type="text" class="column-picker-search" id="columnPickerSearch" placeholder="Filter columns…">
+        <div class="column-picker-grid" id="columnPickerGrid"></div>
+        <div class="column-picker-actions">
+          <button class="btn-picker-reset" id="columnPickerReset">Reset to default</button>
+          <button class="btn-picker-close" id="columnPickerClose">Done</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+
+  <!-- App modules -->
+  <script src="/js/parser.js"></script>
+  <script src="/js/dashboard.js"></script>
+  <script src="/js/table.js"></script>
+  <script src="/js/detail.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>
